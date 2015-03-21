@@ -1,0 +1,57 @@
+---
+title: "ggplot2 Practice"
+output: html_document
+---
+
+##练习ggplot2     
+###Date Type
+```{r, echo = F}
+library(ggplot2)
+library(dplyr)
+library(gcookbook)
+```
+
+```{r}
+str(economics)
+ggplot(economics, aes(x = date, y = psavert)) + geom_line()
+
+# to explore more
+econ <- subset(economics, date >= as.Date('1992-05-01') & date < as.Date('1993-06-01'))
+p <- ggplot(econ, aes(x = date, y = psavert)) + geom_line()
+p
+
+# to adjust the breaks on x-axis
+datebreaks <- seq(as.Date('1992-06-1'), as.Date('1993-5-1'), by = '2 month')
+p + scale_x_date(breaks = datebreaks) + theme(axis.text.x = element_text(angle = 30, hjust =1 ))
+```
+
+try 'r ?Sys.setlocale' and 'r ?strptime'
+
+###To change the text in a graph
+```{r}
+p <- ggplot(heightweight, aes(x = ageYear, y = heightIn)) + geom_point()
+p + theme(axis.title = element_text(      size = 16,
+                                    lineheight = .9,
+                                        family = 'Times',
+                                          face = 'bold.italic',
+                                         color = 'red'))
+
+p + ggtitle('Age and Height\nof School children') + theme(plot.title = element_text(
+    size = rel(1.5), lineheight = .9, family = 'Times', face = 'bold.italic', color = 'red'))
+
+p + annotate('text', x = 15, y = 53, label = 'Balabala', size = 7, family = 'Times', fontface = 'bold.italic', color = 'red')
+
+p + geom_text(aes(label = weightLb), size = 4, family = 'Times', color = 'red')
+````
+
+###Legends
+```{r}
+p <- ggplot(PlantGrowth, aes(x = group, y = weight, fill = group)) + geom_boxplot()
+p
+p + guides(fill = F)
+p + scale_fill_discrete(guide = F)
+p + theme(legend.position = 'none')
+## more about legend
+p <- p + scale_fill_brewer(palette = 'Pastel2')
+p + theme(legend.position = 'top')
+```

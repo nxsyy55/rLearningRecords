@@ -1,0 +1,66 @@
+---
+title: "RImage&ChinesePractice"
+author: "BlackPluto"
+date: "March 21, 2015"
+output: html_document
+---
+# 缘起，主要目的
+在统计之都上看到一篇测量灯泡体积的[文章](http://cos.name/2015/03/the-bulb-measurement-with-r/)。很容易理解，也十分有趣，遂决定模仿一番，结果折腾了两天。**只模仿到画出拟合曲线这一步。**
+
+# 问题
+- 用ggplot画大位图太慢了
+    - 文中只用了500*500，我直接上现代手机拍的照片，结果一辈子都画不出，一开始还没反应过来。
+    - 最后只能用了一个600 ＊ 600的例子。
+    - 其实用R画位图还是有很多其他方法的，只不过我不知道怎么能快速建立坐标系
+- 在linux环境下绘制带有中文的图片
+    - 这个问题肯定折腾过，下了很多packages，最后虽然是搞出来了，但还是挺模糊。
+    - `showtext`和`sysfont`没什么用，我应该是用`extrafont`这个包解决问题的
+    - Microsoft YaHei是人类的好朋友
+# 重点
+- 图片像素和实际尺寸的转换
+- 内插法拟合曲线
+
+```{r}
+library(ggplot2)
+library(png)
+library(splines)
+library(extrafont)
+
+q <- readPNG('~/Desktop/13.png')
+x.length <- function(x){
+    ratio <- 500/(461-105)
+    return((x-105)*ratio)
+}
+#选定头作为原点，假设在y=400像素处蝴蝶长500mm
+y.length <- function(y){
+    ratio <- 500/(461-105)
+    return((y - 200)*ratio)
+}
+
+df <- data.frame(x = rep(1:600, each = 600), 
+                 y = rep(600:1, 600), #像素做标准和我脑子里的坐标系统不太一样，以后要注意多试几次
+                 r = as.vector(q[,,1]),
+                 g = as.vector(q[,,2]),
+                 b = as.vector(q[,,3]),
+                 alpha = as.vector(q[,,4])) #这个图片还是rgba格式，4个矩阵
+
+df$x.length <- x.length(df$x)
+df$y.length <- y.length(df$y)
+
+t <- ggplot(data = df, aes(x = x.length, y = y.length))
+t <- t + geom_raster(aes(fill = rgb(r, g,b), alpha = alpha, guide = F)) +
+     scale_fill_identity() + scale_alpha_identity() + theme_minimal()
+# 翅膀上的点用gimp一个像素一个像素手动抓取
+len.pts <- data.frame(x = x.length(
+                        c(169,172,182,199,220,257,248,276,320,333,346,349,347,350,390,416,454,463,460)),
+                      y = y.length(600 - 
+                        c(359,330,281,230,174,102,113,73,32,28,52,84,121,134,95,80,64,68,115)))
+
+mod <- interpSpline(len.pts$x, len.pts$y)#内插法，三次多项式拟合？
+pre <- as.data.frame(predict(mod, x = seq(89.89, 500, length.out = 1000)))
+
+t <- t + geom_point(data = len.pts, aes(x, y), size = 5, fill = 'orange', shape = 21) + 
+     geom_line(data = pre, aes(x, y), size = 3, color = 'blue') + 
+     annotate('text', x = -50, y = 600, label = '还是满准的', family = 'Microsoft YaHei', size = 6)
+print(t)
+```
