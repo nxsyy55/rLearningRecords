@@ -1,0 +1,62 @@
+---
+title: "Notes_of_detect_model_singal"
+author: "Bruce Chen"
+date: "October 11, 2015"
+output: html_document
+---
+
+Original post:    
+http://www.win-vector.com/blog/2015/08/how-do-you-know-if-your-data-has-signal/
+
+##Experiment
+Below only the first model is good because it's built from the dataset that has the real singal!
+"if your model's accuracy, or variance, or whatever, falls within the distribution of the performance of models built on permuted (no-signal) data, then the original model is not extracting meaningful, generalizable concepts from the data."
+```{r}
+x <- runif(500)
+y <- factor(ifelse(x >= .5, 1, 0))
+ids <-cbind(1:50, replicate(499, sample(1:500, 500)))
+deviance <- vector(length = 500, mode = 'numeric')
+for (i in 1:500){
+    mod <- glm(y[ids[,i]] ~ x, family = binomial)
+    deviance[i] <- mod$deviance    
+}
+plot(x = 1:500, y = deviance, type = 'l')
+which.min(deviance)
+```
+
+There is a caveat here: this technique won't work on modeling algorithms that memorize their training data, like random forest (Kohavi noticed the same problem with cross-validation and bootstrap). 
+
+##chi-squared and F tests
+When you have very many variables, permutation tests to check which of the variables have signal can get computationally-intensive. Fortunately, there are "closed-form" statistics you can use to estimate the significance of your variables (or to be precise, the significance of the one-variable models built from your variables). 
+
+##A More Realistic Example
+We tried this approach on the 2009 KDD Cup dataset: data from about 50,000 credit card accounts. Our goal is to predict churn (account cancellation). The raw data consists of 234 anonymized inputs, both numerical and categorical. Many of the variables are sparsely populated, and there were a few categorical variables with a large number of levels. We used our vtreat package to clean the data, in particular to deal with NAs and large categoricals. This inflated the number of input columns to 448, all numerical and all clean. As recommended in point 4 above, we split the data into three sets: one for data treatment (vtreat), one for model fitting, and one for test. You can see the code for this experiment here.
+
+##Results
+
+Winnowing down the variables didn't improve model performance much for logistic regression, and not at all for gradient boosting, which suggests that the gradient boosting algorithm does a pretty good job of variable selection on its own. However, the variable filtering reduced the run time for gradient boosting by almost a factor of five (from 7 seconds to 1.5), and that in itself is of value.
+
+Notes of 'how do you know if your model is going to work'
+=========================================================
+original posts:    
+http://www.win-vector.com/blog/2015/09/willyourmodelworkpart1/    
+http://www.win-vector.com/blog/2015/09/willyourmodelworkpart2/    
+http://www.win-vector.com/blog/2015/09/willyourmodelworkpart3/    
+http://www.win-vector.com/blog/2015/09/willyourmodelworkpart4/    
+
+The first thing is to understand the choice of utility metric matters!
+The data scientist should definitely compare their model to the best single variable model. Until you significantly outperform the best single variable model you have not outperformed what an analyst can find with a single pivot table.
+
+##Takeaways
+
+Model testing and validation are important parts of statistics and data science. You can only validate what you can repeat, so automated variable processing and selection is a necessity.
+
+You can become very good at testing and validation, if instead of working from a list of tests (and there are hundreds of such tests) you work in the following way:
+
+- Ask: What do I need to measure (a size of effect and/or a confidence)?
+- Ask: Do I have enough data to work out of sample?
+- Ask: Am I okay with a point estimate, or do I need distributional details?
+- Ask: Do I want to measure the model I am turning in or the modeling procedure?
+- Ask: Am I concerned about computational efficiency?    
+The answers to these questions or trade-offs between these issues determines your test procedure. That is why this series was organized a light outline of typical questions leading to traditional techniques.
+###And other classic tricks like cross validation, balabala
