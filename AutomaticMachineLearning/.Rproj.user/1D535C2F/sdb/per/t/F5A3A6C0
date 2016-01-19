@@ -1,0 +1,17 @@
+{
+    "contents" : "library(shiny)\n\nshinyServer(function(input, output) {\n\n  \n  \n  \n  output$number1 <- renderText({input$num1})\n  output$number2 <- renderText({input$num2})\n})\nresult <- c()\nfor (i in 1:2.5e+10){\n  a <- i\n  b <- 2.5e+10\n  result[i] <- b/a\n}",
+    "created" : 1437143178713.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2396050759",
+    "id" : "F5A3A6C0",
+    "lastKnownWriteTime" : 1437917090,
+    "path" : "~/funnum/server.R",
+    "project_path" : "server.R",
+    "properties" : {
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "type" : "r_source"
+}

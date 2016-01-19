@@ -1,0 +1,17 @@
+{
+    "contents" : "library(shiny)\n\nshinyUI(fluidPage(\n\n  titlePanel(\"Test.test, Chinese failed! NO CHINESE!\"),\n\n  sidebarLayout(\n    sidebarPanel(\n    textInput(inputId = 'num1', label = 'Enter the initial number!', value = 'abcde1fghij2klmnopqrst1uvxy'),\n    textInput(inputId = 'num2', label = 'Enter the final number!', value = 'pqrst1uvxyabcde1fghij2klmno'),\n    textInput(inputId = 'num3', label = 'Enter the MULT.', value = 4)),\n\n    mainPanel(textOutput('number1'),\n              textOutput('number2'))\n  )\n))\n",
+    "created" : 1437143178556.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1818159128",
+    "id" : "61B8299F",
+    "lastKnownWriteTime" : 1437144549,
+    "path" : "~/funnum/ui.R",
+    "project_path" : "ui.R",
+    "properties" : {
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "type" : "r_source"
+}

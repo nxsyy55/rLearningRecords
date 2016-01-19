@@ -1,0 +1,73 @@
+---
+title: "machine learning model"
+author: "Bruce Chen"
+date: "July 26, 2015"
+output: html_document
+---
+A mimic of an article from the net which is also in my evernote.[3-step lesson automatic machine learning with R]
+
+```{r}
+suppressMessages(library(ggplot2))
+suppressMessages(library(forecast))
+suppressMessages(library(dplyr))
+#only run once, FUCK THE CHINESE GREAT FIRE WALL
+#url <- 'https://raw.githubusercontent.com/pablo14/machine_learn/master/data_historical.txt'
+#download.file(url, 'thefirstdata.txt')
+dat <- read.delim('thefirstdata.txt', header = T, sep = '\t') 
+```
+
+## Model I, the basic
+Fit the model using the historical data and check accuracy metrics: here choose MAPE (Mean Average Percentage Error), close to 0, better.
+
+```{r}
+## modeling
+mod1 <- lm(purchases ~ age, data = dat)
+with(dat, plot(x = age, y = purchases))
+abline(mod1, col = 'red', lwd = 2)
+
+## checking, I love the forecast package!
+accuracy(mod1)
+```
+So by the model, the MAPE is 7.97%. It is expected to have a similar value over next months, if not, the model is not a good representation of reality.    
+Also need to define a thresold, pick 10% here. __If the error (measuring by MAPE) in the following months is higher than 10%, model has to be rebuilding.__
+And in the article, the model works fine until May! In may, the error (MAPE here) is 18.79%. __Time to rebuild our model.__
+
+## Model II
+```{r}
+# this is the newest data in MAY
+# only run once, FUCK THE CHINESE GREAT FIRE WALL
+# url2 <- 'https://raw.githubusercontent.com/pablo14/machine_learn/master/data_may.txt'
+# download.file(url2, 'theseconddata.txt')
+dat2 <- read.delim('theseconddata.txt', header = T, sep = '\t') 
+
+# check how the mod I is working
+with(dat2, plot(x = age, y = purchases))
+abline(mod1, col = 'red', lwd = 2)
+```
+
+Clearly, the model works well predicting purchases on customers before 35 years-old, and becomes missaccuarate for older people. This segment is buying more than before. 
+First, try to build new model, based on new data. But here, what's the author trying to show is an automatic way to update our model anytime when the model is, say, our of date. Check the codes very carefully.
+```{r}
+threshold <- 10
+error_may <- predict(mod1, newdata = data.frame(age = dat2$age)) %>% accuracy(., dat2$purchases) %>% .[1,5]
+if (error_may > threshold)
+{## Build new model, based on new data.
+    new_model <- lm(data = dat2, purchases ~ age)
+    new_error <- accuracy(new_model)[, 'MAPE']
+    print('The model has been updated!')
+} else
+{
+  print('We are fine so far!')
+}
+
+# check the new model
+with(dat2, plot(x = age, y = purchases))
+abline(new_model, col = 'red', lwd = 2)
+```
+
+## And we are done!
+The idea is quite straight and simple. Some advanced comments:
+
+- When a variable changes its distribution, affecting significantly prediction accuracy, the model should be checked (in our case, 10%).
+- Other case is when a new variable appears, one that we didn't know when the model was built. Most advanced systems take care of this and automatically map this new concept. Like a search engine with new terms.
+- The most important point here is __the concept of closed-system__: The error is checked every month and determines if the model has or not to be re-adjusted.

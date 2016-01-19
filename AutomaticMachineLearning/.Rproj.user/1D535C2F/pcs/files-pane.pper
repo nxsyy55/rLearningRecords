@@ -1,0 +1,9 @@
+{
+    "path" : "~/funnum",
+    "sortOrder" : [
+        {
+            "ascending" : true,
+            "columnIndex" : 2
+        }
+    ]
+}

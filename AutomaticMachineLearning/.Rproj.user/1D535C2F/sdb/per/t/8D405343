@@ -1,0 +1,18 @@
+{
+    "contents" : "---\ntitle: \"machine learning model\"\nauthor: \"Bruce Chen\"\ndate: \"July 26, 2015\"\noutput: html_document\n---\nA mimic of an article from the net which is also in my evernote.[3-step lesson automatic machine learning with R]\n\n```{r}\nsuppressMessages(library(ggplot2))\nsuppressMessages(library(forecast))\nsuppressMessages(library(dplyr))\n#only run once, FUCK THE CHINESE GREAT FIRE WALL\n#url <- 'https://raw.githubusercontent.com/pablo14/machine_learn/master/data_historical.txt'\n#download.file(url, 'thefirstdata.txt')\ndat <- read.delim('thefirstdata.txt', header = T, sep = '\\t') \n```\n\n## Model I, the basic\nFit the model using the historical data and check accuracy metrics: here choose MAPE (Mean Average Percentage Error), close to 0, better.\n\n```{r}\n## modeling\nmod1 <- lm(purchases ~ age, data = dat)\nwith(dat, plot(x = age, y = purchases))\nabline(mod1, col = 'red', lwd = 2)\n\n## checking, I love the forecast package!\naccuracy(mod1)\n```\nSo by the model, the MAPE is 7.97%. It is expected to have a similar value over next months, if not, the model is not a good representation of reality.    \nAlso need to define a thresold, pick 10% here. __If the error (measuring by MAPE) in the following months is higher than 10%, model has to be rebuilding.__\nAnd in the article, the model works fine until May! In may, the error (MAPE here) is 18.79%. __Time to rebuild our model.__\n\n## Model II\n```{r}\n# this is the newest data in MAY\n# only run once, FUCK THE CHINESE GREAT FIRE WALL\n# url2 <- 'https://raw.githubusercontent.com/pablo14/machine_learn/master/data_may.txt'\n# download.file(url2, 'theseconddata.txt')\ndat2 <- read.delim('theseconddata.txt', header = T, sep = '\\t') \n\n# check how the mod I is working\nwith(dat2, plot(x = age, y = purchases))\nabline(mod1, col = 'red', lwd = 2)\n```\n\nClearly, the model works well predicting purchases on customers before 35 years-old, and becomes missaccuarate for older people. This segment is buying more than before. \nFirst, try to build new model, based on new data. But here, what's the author trying to show is an automatic way to update our model anytime when the model is, say, our of date. Check the codes very carefully.\n```{r}\nthreshold <- 10\nerror_may <- predict(mod1, newdata = data.frame(age = dat2$age)) %>% accuracy(., dat2$purchases) %>% .[1,5]\nif (error_may > threshold)\n{## Build new model, based on new data.\n    new_model <- lm(data = dat2, purchases ~ age)\n    new_error <- accuracy(new_model)[, 'MAPE']\n    print('The model has been updated!')\n} else\n{\n  print('We are fine so far!')\n}\n\n# check the new model\nwith(dat2, plot(x = age, y = purchases))\nabline(new_model, col = 'red', lwd = 2)\n```\n\n## And we are done!\nThe idea is quite straight and simple. Some advanced comments:\n\n- When a variable changes its distribution, affecting significantly prediction accuracy, the model should be checked (in our case, 10%).\n- Other case is when a new variable appears, one that we didn't know when the model was built. Most advanced systems take care of this and automatically map this new concept. Like a search engine with new terms.\n- The most important point here is __the concept of closed-system__: The error is checked every month and determines if the model has or not to be re-adjusted.\n",
+    "created" : 1437917136540.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1659000508",
+    "id" : "8D405343",
+    "lastKnownWriteTime" : 1437919834,
+    "path" : "~/funnum/ReadMe.Rmd",
+    "project_path" : "ReadMe.Rmd",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "type" : "r_markdown"
+}
