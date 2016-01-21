@@ -8,11 +8,15 @@ output:
     theme: cosmo
 ---
 ## The pratice on Kaggle
-Titanic: Machine Learning from Disaster[https://www.kaggle.com/c/titanic]
-Read and prepare the data first.
+Titanic: Machine Learning from Disaster[https://www.kaggle.com/c/titanic]    
+
+## Clean the data
+Read and prepare the data.
 ```{r}
 suppressMessages(library(ggplot2))
 suppressMessages(library(dplyr))
+library(doParallel)
+
 train <- read.csv('train.csv')
 # check
 summary(train)
@@ -20,77 +24,98 @@ hist(train$Age)
 shapiro.test(train$Age)
 qqnorm(train$Age)
 median(train$Age, na.rm = T)
-train_shaped <- train %>% select(-PassengerId, -Name, -Ticket, -Cabin) %>% 
+train.shaped <- train %>% select(-PassengerId, -Name, -Ticket, -Cabin) %>% 
                 mutate(age = ifelse(is.na(Age), 28, Age), 
                        survive = factor(ifelse(Survived == 1, 'Yes', 'No' )), 
-                                        class = factor(ifelse(Pclass == 1, 'U',
-                                                       ifelse(Pclass == 2, 'M', 'L')))) %>% select(-Survived, -Pclass, -Age)
+                       class = factor(ifelse(Pclass == 1, 'U',
+                                             ifelse(Pclass == 2, 'M', 'L')))) %>% 
+                select(-Survived, -Pclass, -Age, -Embarked)
+summary(train.shaped)
+
+test <- read.csv('test.csv')
+test.shaped <- test %>% select(-PassengerId, -Name, -Ticket, -Cabin) %>% 
+               mutate(age = ifelse(is.na(Age), 28, Age), 
+                      class = factor(ifelse(Pclass == 1, 'U',
+                                     ifelse(Pclass == 2, 'M', 'L')))) %>% 
+               select(-Pclass, -Age, -Embarked)
 ```
 ## the base model, the logistic regression
 Use all the variables except the name and cabin. And __here only the complete cases are used.__ And I got about 80% accuracy.
 
 ```{r}
-str(train_shaped)
-base_mod <- glm(data = train_shaped, survive ~ ., family = binomial)
+base.mod <- glm(data = train.shaped, survive ~ ., family = binomial)
 summary(base_mod)
-base_prediction <- ifelse(predict(base_mod, type = 'response') > 0.5, 'Yes', 'No')
-table(train_shaped$survive, base_prediction)
-(base_accuracy <- (478 + 240) / 891) 
+base.prediction <- ifelse(predict(base.mod, type = 'response') > 0.5, 'Yes', 'No')
+table(train.shaped$survive, base.prediction)
+(base_accuracy <- (467 + 243) / 891) #0.7968575
+
 # decrease the variables
-base_mod_min <- glm(data = train_shaped, survive ~ Sex + class + age + SibSp, family = binomial)
-base_min_prediction <- ifelse(predict(base_mod_min, type = 'response') > 0.5, 'Yes', 'No')
-table(train_shaped$survive, base_min_prediction)
-(base_accuracy <- (459 + 243) / 891) #78%
+base.mod.min <- glm(data = train.shaped, survive ~ Sex + class + age + SibSp, family = binomial)
+base.min.prediction <- ifelse(predict(base.mod.min, type = 'response') > 0.5, 'Yes', 'No')
+table(train.shaped$survive, base_min_prediction)
+(base_accuracy <- (459 + 243) / 891) #78.78%
+
 # test with the test data set
-test <- read.csv('test.csv')
-test_shaped <- test %>% select(-PassengerId, -Name, -Ticket, -Cabin) %>% 
-                mutate(age = ifelse(is.na(Age), 28, Age), 
-                                    class = factor(ifelse(Pclass == 1, 'U',
-                                                   ifelse(Pclass == 2, 'M', 'L')))) %>% select(-Pclass, -Age)
-base_test_result <- ifelse(predict(base_mod_min, newdata = test_shaped) >= 0.5, 1, 0)
-write.csv('base_mod_result.csv', x = data.frame(PassengerId = test$PassengerId, Survived = base_test_result), row.names = F)
+base.test.result <- ifelse(predict(base.mod.min, newdata = test.shaped) >= 0.5, 1, 0)
+#write.csv('base.mod.result.csv', x = data.frame(PassengerId = test$PassengerId, Survived = base.test.result), row.names = F)
 ```
 ### The base model result
 __Survive ~ Sex + class + age + SibSp__ Got 77.033% right on the test set. Ranked 2249/3146.     
 
-__Now try the caret package.__
+###Now try the caret package
 ```{r, cache = T}
+library(doParallel)
 suppressMessages(library(caret))
 suppressMessages(library(boot))
-# deal withe the N.A.
+
+
+cl <- makePSOCKcluster(12)
+registerDoParallel(cl)
+
+# not used here
 mean_boot <- function(data, id){
     dat <- na.omit(data[id, ]$Age)
     mean(dat)
 }
 boot(train, mean_boot, 1000)
-# prepare the data set
-train_da <- train %>% mutate(survived = factor(Survived), age = ifelse(is.na(Age), 28.6, Age), class = factor(Pclass),
-                             fare = ifelse(is.na(Fare), quantile(Fare, .15), Fare)) %>% select(survived, age, class, fare, Sex, SibSp, Parch)
+
 # do a model selection with k-fold cv, where k = 10
-ctrl <- trainControl(method = 'cv')
-mod1_log <- train(data = train_da, survived ~ ., method = 'glm', family = binomial, trControl = ctrl)
-mod2_lda <- train(data = train_da, survived ~ ., method = 'lda', trControl = ctrl)
-mod3_knn <- train(data = train_da, survived ~ ., method = 'knn', trControl = ctrl)
-mod4_svm <- train(data = train_da, survived ~ ., method = 'svmLinear', trControl = ctrl) # mod4b has the same result
-mod4b_svm <- train(data = train_da, survived ~ ., method = 'svmLinear', trControl = ctrl, preProcess = c('center', 'scale'))
-mod5_treebag <- train(data = train_da, survived ~ ., method = 'treebag', trControl = ctrl)
-mod6_randomforest <- train(data = train_da, survived ~ ., method = 'rf', trControl = ctrl)#the best one
+ctrl <- trainControl(method = 'repeatedcv')
+mod.lda <- train(data = train.shaped, survive ~ ., method = 'lda2', trControl = ctrl, tuneGrid = data.frame(.dimen=1:6))
+
+mod.knn <- train(data = train.shaped, survive ~ ., method = 'knn', trControl = ctrl, tuneLength = 10)
+
+mod.svm <- train(data = train.shaped, survive ~ ., method = 'svmLinear', trControl = ctrl, preProcess = c('center',             'scale'), tuneGrid = data.frame(.C=seq(0.001, .5, length.out = 12)))
+
+mod.treebag <- train(data = train.shaped, survive ~ ., method = 'treebag', trControl = ctrl)
+
+mod.gbm <- train(data = train.shaped, survive ~ ., method = 'gbm', trControl = ctrl, tuneLength = 10)
+
+mod.randomforest <- train(data = train.shaped, survive ~ ., method = 'rf', trControl = ctrl, tuneLength = 6)
+
+grid <- expand.grid(.trials = 1:30,
+                    .model = "tree",
+                    .winnow = seq(0, 1, length.out = 15))
+mod.c5 <- train(data = train.shaped, survive ~ ., method = "C5.0", tuneGrid = grid)
+
 #do the prediction on the test set
-test_da <- test %>% mutate(age = ifelse(is.na(Age), 28.6, Age), class = factor(Pclass),
-                           fare = ifelse(is.na(Fare), quantile(na.omit(Fare), .15), Fare))
-out_file <- data.frame(pASSENGERiD = test$PassengerId, Survived = predict(mod6_randomforest, test_da))
-#write.csv(out_file, 'rf_mod.csv', row.names = F, quote = F) #Survived is a factor here
+pre.lda <- ifelse(predict(mod.lda, test.shaped) == "Yes", 1, 0)
+pre.knn <- ifelse(predict(mod.knn, test.shaped) == "Yes", 1, 0)
+pre.svm <- ifelse(predict(mod.svm, test.shaped) == "Yes", 1, 0)
+pre.treebag <- ifelse(predict(mod.treebag, test.shaped) == "Yes", 1, 0)
+pre.gbm <- ifelse(predict(mod.gbm, test.shaped) == "Yes", 1, 0)
+pre.randomforest <- ifelse(predict(mod.randomforest, test.shaped) == "Yes", 1, 0)
+pre.c5 <- ifelse(predict(mod.c5, test.shaped) == "Yes", 1, 0)
 
-```
-And surprisingly, the random forest performes worse than my first logistic model! So now try to use the treebag model.
+fare.na.case <- test[is.na(test.shaped$Fare), ]
 
-```{r}
-out_file2 <- data.frame(pASSENGERiD = test$PassengerId, Survived = predict(mod5_treebag, test_da))
-#write.csv(out_file2, 'treebag_mod.csv', row.names = F, quote = F) #Survived is a factor here
+result <- as.data.frame(cbind(pASSENGERiD = test$PassengerId[!is.na(test$Fare)], pre.lda, pre.knn, pre.svm, pre.treebag, pre.gbm, pre.randomforest, pre.c5))
+
+# predict by human!!
+result[418, ] <- c(1044, 0, 0, 0, 0, 0, 0, 0)
+#write.csv(result, 'final.result.csv', row.names = F, quote = F) 
+stopCluster(cl)
 ```
-And __NO__!! Still no improvement!
+
+And surprisingly, the random forest performes worse than my first logistic model! So now try to use the treebag model.And __NO__!! Still no improvement!
 So try to reproduce the base model on the page. "A survival table created based on the proportion of survivors using gender, their ticket class, and the price they paid for their ticket."
-```{r}
-
-
-```
