@@ -118,4 +118,40 @@ stopCluster(cl)
 ```
 
 And surprisingly, the random forest performes worse than my first logistic model! So now try to use the treebag model.And __NO__!! Still no improvement!
-So try to reproduce the base model on the page. "A survival table created based on the proportion of survivors using gender, their ticket class, and the price they paid for their ticket."
+So try to reproduce the base model on the page. "A survival table created based on the proportion of survivors using gender, their ticket class, and the price they paid for their ticket."    
+
+ensamble
+================
+Two methods:    
+-avarage all the 7 models and chose the cutoff avlue at .5. which performed the bset so fat at 0.77512.(Not shown here)
+-Build a gbm with 7 additional pros.
+```{r}
+cl <- makePSOCKcluster(23)
+registerDoParallel(cl)
+train.shaped$lda <- predict(mod.lda, train.shaped, type = "prob")[, 1] # the prob of NO
+train.shaped$knn <- predict(mod.knn, train.shaped, type = "prob")[, 1] # the prob of NO
+train.shaped$c5 <- predict(mod.c5, train.shaped, type = "prob")[, 1] # the prob of NO
+train.shaped$gbm <- predict(mod.gbm, train.shaped, type = "prob")[, 1] # the prob of NO
+train.shaped$svm <- predict(mod.svm, train.shaped) # cannot get the prob.
+train.shaped$rf <- predict(mod.randomforest, train.shaped, type = "prob")[, 1] # the prob of NO
+train.shaped$bagtree <- predict(mod.treebag, train.shaped, type = "prob")[, 1] # the prob of NO
+head(train.shaped)
+
+####
+mod.em <- train(data = train.shaped, survive ~ ., method = "xgbTree", trControl = ctrl) # .97... but .55 on test!!!!
+mod.em2 <- train(data = train.shaped, survive ~ ., method = "gbm", trControl = ctrl, tuneLength = 10) 
+#handle the NA
+test.shaped[!complete.cases(test.shaped), "Fare"] <- median(train.shaped$Fare)
+test.shaped$lda <- predict(mod.lda, test.shaped, type = "prob")[, 1] # the prob of NO
+test.shaped$knn <- predict(mod.knn, test.shaped, type = "prob")[, 1] # the prob of NO
+test.shaped$c5 <- predict(mod.c5, test.shaped, type = "prob")[, 1] # the prob of NO
+test.shaped$gbm <- predict(mod.gbm, test.shaped, type = "prob")[, 1] # the prob of NO
+test.shaped$svm <- predict(mod.svm, test.shaped) # cannot get the prob.
+test.shaped$rf <- predict(mod.randomforest, test.shaped, type = "prob")[, 1] # the prob of NO
+test.shaped$bagtree <- predict(mod.treebag, test.shaped, type = "prob")[, 1] # the prob of NO
+#final output
+pre.final <- predict(mod.em, test.shaped)
+pre.final2 <- predict(mod.em2, test.shaped)
+#write.csv(pre.final2, 'emModel.result2.csv', row.names = F, quote = F) 
+stopCluster(cl)
+```
